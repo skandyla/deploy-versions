@@ -26,3 +26,21 @@ jobs:
 
     - name: Run linter
       run: make lint
+
+    #- name: Test code
+    #  run: make test
+
+    #- name: Tests coverage
+    #  run: make cover
+
+    - name: Build binary and docker image
+      id: build-image
+      run: |
+        make build
+        make docker_image
+
+    - name: Testing integration
+      run: |
+        make docker_compose_start
+        make docker_compose_run_tests
+        make docker_compose_stop

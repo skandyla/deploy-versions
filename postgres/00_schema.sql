@@ -1,6 +1,5 @@
-CREATE DATABASE deploy_versions;
-
-\c deploy_versions
+--CREATE DATABASE deploy_versions;
+--\c deploy_versions
 
 CREATE TABLE IF NOT EXISTS versions (
   project varchar(32),          -- Project name. We can have multiple
