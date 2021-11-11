@@ -57,21 +57,21 @@ func (s *VersionStorage) GetVersionByID(id int) (m models.VersionDBModel, err er
 
 // PostVersion - create new entity
 func (s *VersionStorage) PostVersion(m models.VersionDBModel) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("PostVersion: %w", err)
-	}
-	defer tx.Rollback()
+	//tx, err := s.db.Begin()
+	//if err != nil {
+	//	return fmt.Errorf("PostVersion: %w", err)
+	//}
+	//defer tx.Rollback() //need to check error
 
-	res, err := tx.Exec("INSERT into versions(project, env, region, service, git_branch, git_commit_hash, build_id, user_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+	res, err := s.db.Exec("INSERT into versions(project, env, region, service, git_branch, git_commit_hash, build_id, user_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		&m.Project, &m.Env, &m.Region, &m.Service, &m.GitBranch, &m.GitCommitHash, &m.BuildID, &m.UserName)
 
 	log.Println(res)
 	if err != nil {
 		return fmt.Errorf("PostVersion: %w", err)
 	}
-
-	return tx.Commit()
+	return nil
+	//return tx.Commit()
 }
 
 //translate DBModel into our ResponseStruct
