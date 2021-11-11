@@ -39,9 +39,13 @@ jobs:
         make build
         make docker_image
 
-    - name: Testing integration
+    - name: Starting docker compose
       run: |
-        sudo apt -y install httpie
         make docker_compose_start
+        make docker_compose_run_tests
+        make docker_compose_stop
+
+    - name: Testing our app via docker-compose
+      run: |
         make docker_compose_run_tests
         make docker_compose_stop

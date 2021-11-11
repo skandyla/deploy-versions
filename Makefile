@@ -49,7 +49,7 @@ docker_compose_run_tests:
 	curl -v localhost:8080/info
 	curl -v localhost:8080/versions
 	curl -v localhost:8080/version/130
-	http POST http://127.0.0.1:8080/version project=NewOne env=dev region=us-west-1 service_name=notifications user_name=bsmith build_id=133 --ignore-stdin
+	curl -v -X POST localhost:8080/version -d '{"project":"example","env":"dev","region":"us-west-1","service_name"="notifications","user_name":"bsmith","build_id"=133}'
 	curl -v localhost:8080/version/133
 	curl -v localhost:8080/version/140  #not found expected
 
