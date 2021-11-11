@@ -46,10 +46,10 @@ docker_compose_stop:
 # example. go integration tests TBD
 docker_compose_run_tests:
 	@echo MARK: Testing via docker-compose 
-	curl -v localhost:8080/info
-	curl -v localhost:8080/versions
-	curl -v localhost:8080/version/130
-	curl -v -X POST localhost:8080/version -d '{"project":"example","env":"dev","region":"us-west-1","service_name"="notifications","user_name":"bsmith","build_id"=133}'
-	curl -v localhost:8080/version/133
-	curl -v localhost:8080/version/140  #not found expected
+	curl localhost:8080/info
+	curl localhost:8080/versions
+	curl localhost:8080/version/130
+	curl -X POST localhost:8080/version -d '{"project":"example","env":"dev","region":"us-west-1","service_name"="notifications","user_name":"bsmith","build_id"=133}'
+	curl localhost:8080/version/133
+	curl localhost:8080/version/140  #not found expected
 
