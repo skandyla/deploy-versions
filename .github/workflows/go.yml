@@ -41,6 +41,7 @@ jobs:
 
     - name: Testing integration
       run: |
+        apt install httpie
         make docker_compose_start
         make docker_compose_run_tests
         make docker_compose_stop
