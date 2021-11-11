@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/skandyla/deploy-versions/config"
-
 	"github.com/skandyla/deploy-versions/internal"
 )
 
@@ -37,7 +36,7 @@ func main() {
 	})
 
 	r.Route("/version", func(r chi.Router) {
-		r.Get("/", h.GetVersion)
+		//r.Get("/", h.GetVersion)
 		r.Post("/", h.PostVersion)
 		r.Route("/{buildID}", func(r chi.Router) {
 			r.Get("/", h.GetVersionByID)

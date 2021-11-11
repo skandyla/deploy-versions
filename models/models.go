@@ -21,3 +21,14 @@ type VersionResponse struct {
 	UserName  string    `json:"user_name"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type CreateVersionRequest struct {
+	Project       string `json:"project"`
+	Env           string `json:"env" validate:"required"`
+	Region        string `json:"region" validate:"required"`
+	Service       string `json:"service_name" validate:"required"`
+	UserName      string `json:"user_name" validate:"required"`
+	GitBranch     string `json:"git_branch"`
+	GitCommitHash string `json:"git_commit_hash"`
+	BuildID       string `json:"build_id" validate:"required"`
+}
