@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/skandyla/deploy-versions/config"
 	"github.com/skandyla/deploy-versions/internal"
+	"github.com/skandyla/deploy-versions/pkg/db"
 )
 
 func main() {
@@ -16,12 +17,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	storage, err := internal.NewVersionStorage(config)
+	dbc, err := db.NewConnection(config.PostgresDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	h := internal.NewVersionHandler(*storage)
+	storage := internal.NewVersionStorage(dbc)
+	h := internal.NewVersionHandler(storage)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)

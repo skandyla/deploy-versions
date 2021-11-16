@@ -6,7 +6,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/skandyla/deploy-versions/config"
 	"github.com/skandyla/deploy-versions/models"
 )
 
@@ -22,15 +21,10 @@ var (
                     	LIMIT $1`
 )
 
-func NewVersionStorage(cfg *config.Config) (*VersionStorage, error) {
-	connection, err := sqlx.Connect("postgres", cfg.PostgresDSN)
-	if err != nil {
-		return nil, fmt.Errorf("connection is not initialized %w", err)
+func NewVersionStorage(db *sqlx.DB) VersionStorage {
+	return VersionStorage{
+		db: db,
 	}
-
-	return &VersionStorage{
-		db: connection,
-	}, nil
 }
 
 // Health checks availability of storage
