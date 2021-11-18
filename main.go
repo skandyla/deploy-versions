@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"log"
 	"net/http"
 	"os"
 	"strings"
@@ -26,6 +25,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		if err := dbc.Close(); err != nil {
+			log.Printf("error closing database: %v", err)
+		}
+	}()
 
 	storage := internal.NewVersionStorage(dbc)
 	h := internal.NewVersionHandler(storage)
