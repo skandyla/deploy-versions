@@ -1,11 +1,14 @@
 package main
 
 import (
-	"log"
+	//"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/config"
 	"github.com/skandyla/deploy-versions/internal"
 	"github.com/skandyla/deploy-versions/pkg/db"
@@ -16,6 +19,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	initLogger(config.LogLevel, config.JsonLogOutput)
 
 	dbc, err := db.NewConnection(config.PostgresDSN)
 	if err != nil {
@@ -47,8 +52,24 @@ func main() {
 		})
 	})
 
-	err = http.ListenAndServe(":8080", r)
+	err = http.ListenAndServe(config.ListenAddress, r)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func initLogger(logLevel string, json bool) {
+	if json {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+	log.SetOutput(os.Stderr)
+
+	switch strings.ToLower(logLevel) {
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	default:
+		log.SetLevel(log.DebugLevel)
 	}
 }
