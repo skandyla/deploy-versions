@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -56,12 +59,54 @@ func main() {
 		})
 	})
 
-	err = http.ListenAndServe(config.ListenAddress, r)
-	if err != nil {
-		log.Fatal(err)
+	server := http.Server{
+		Addr:           config.ListenAddress,
+		Handler:        r,
+		ReadTimeout:    config.ReadTimeout,
+		WriteTimeout:   config.WriteTimeout,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	// Make a channel to listen for errors coming from the listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	serverErrors := make(chan error, 1)
+	go func() {
+		log.Printf("server started, listening on %s", server.Addr)
+		serverErrors <- server.ListenAndServe()
+	}()
+
+	//------------------------------
+	//shutdown
+
+	// Blocking main and waiting for shutdown of the daemon.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Waiting for an osSignal or a non-HTTP related server error.
+	select {
+	case err := <-serverErrors:
+		log.Printf("server error: %w", err)
+		return
+
+	case sig := <-shutdown:
+		log.Info("shutdown started, signal: ", sig)
+		//log.WithFields(log.Fields{"shutdown_status": "started"}).Info(sig)
+		defer log.Info("shutdown complete, signal: ", sig)
+
+		// Give outstanding requests a deadline for completion.
+		ctx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+
+		// Asking listener to shutdown and shed load.
+		if err := server.Shutdown(ctx); err != nil {
+			server.Close()
+			log.Printf("could not stop server gracefully: %w", err)
+			return
+		}
 	}
 }
 
+//------------------------------
 func initLogger(logLevel string, json bool) {
 	if json {
 		log.SetFormatter(&log.JSONFormatter{})
