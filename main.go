@@ -8,11 +8,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/config"
-	"github.com/skandyla/deploy-versions/internal"
+
+	"github.com/skandyla/deploy-versions/internal/repository"
+	"github.com/skandyla/deploy-versions/internal/service"
+	"github.com/skandyla/deploy-versions/internal/transport"
 	"github.com/skandyla/deploy-versions/pkg/db"
 )
 
@@ -32,36 +33,16 @@ func main() {
 		if err := dbc.Close(); err != nil {
 			log.Printf("error closing database: %v", err)
 		}
+		log.Println("clossing database connection")
 	}()
 
-	storage := internal.NewVersionStorage(dbc)
-	h := internal.NewVersionHandler(storage)
-
-	r := chi.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Logger)
-
-	r.Route("/info", func(r chi.Router) {
-		r.Get("/", h.Info)
-	})
-
-	r.Route("/versions", func(r chi.Router) {
-		r.Get("/", h.GetAllVersions)
-	})
-
-	r.Route("/version", func(r chi.Router) {
-		//r.Get("/", h.GetVersion)
-		r.Post("/", h.PostVersion)
-		r.Route("/{buildID}", func(r chi.Router) {
-			r.Get("/", h.GetVersionByID)
-			r.Put("/", h.PutVersionByID) //update entity
-			r.Delete("/", h.DeleteVersionByID)
-		})
-	})
+	versionsRepository := repository.NewVersionRepository(dbc)
+	versionsService := service.NewVersions(versionsRepository)
+	handler := transport.NewHandler(versionsService)
 
 	server := http.Server{
 		Addr:           config.ListenAddress,
-		Handler:        r,
+		Handler:        handler.InitRouter(),
 		ReadTimeout:    config.ReadTimeout,
 		WriteTimeout:   config.WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
@@ -76,11 +57,10 @@ func main() {
 	}()
 
 	//------------------------------
-	//shutdown
-
 	// Blocking main and waiting for shutdown of the daemon.
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	// Waiting for an osSignal or a non-HTTP related server error.
 	select {
@@ -88,7 +68,7 @@ func main() {
 		log.Printf("server error: %w", err)
 		return
 
-	case sig := <-shutdown:
+	case sig := <-quit:
 		log.Info("shutdown started, signal: ", sig)
 		//log.WithFields(log.Fields{"shutdown_status": "started"}).Info(sig)
 		defer log.Info("shutdown complete, signal: ", sig)
