@@ -65,7 +65,7 @@ func main() {
 	// Waiting for an osSignal or a non-HTTP related server error.
 	select {
 	case err := <-serverErrors:
-		log.Printf("server error: %w", err)
+		log.Printf("server error: %v", err)
 		return
 
 	case sig := <-quit:
@@ -80,7 +80,7 @@ func main() {
 		// Asking listener to shutdown and shed load.
 		if err := server.Shutdown(ctx); err != nil {
 			server.Close()
-			log.Printf("could not stop server gracefully: %w", err)
+			log.Printf("could not stop server gracefully: %v", err)
 			return
 		}
 	}
