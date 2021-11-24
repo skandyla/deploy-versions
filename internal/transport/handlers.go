@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -34,12 +35,26 @@ func NewHandler(versions Versions) *Handler {
 	}
 }
 
-func (h *Handler) InitRouter() *chi.Mux {
+func Liveness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "ok\n")
+}
+
+func (h *Handler) InitRouter() *http.ServeMux {
+	// passing /liveness via standrad http router
+	// just example how deal with multi-routes
+	stdApiHandler := http.NewServeMux()
+	stdApiHandler.HandleFunc("/liveness", Liveness)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(loggingMiddleware) //test our own middleware implementation
+
+	r.Route("/readiness", func(r chi.Router) {
+		r.Get("/", h.readiness)
+	})
 
 	r.Route("/info", func(r chi.Router) {
+		r.Use(loggingMiddleware) //test our own middleware implementation
 		r.Get("/", h.info)
 	})
 
@@ -57,7 +72,11 @@ func (h *Handler) InitRouter() *chi.Mux {
 		})
 	})
 
-	return r
+	siteMux := http.NewServeMux()
+	siteMux.Handle("/liveness", stdApiHandler)
+	siteMux.Handle("/", r)
+
+	return siteMux
 }
 
 //-------------------------------
@@ -83,6 +102,13 @@ func (h Handler) info(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+// application is ready to serve connections.
+// for comparing with default mux
+func (h Handler) readiness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "ok\n")
 }
 
 func (h Handler) getAllVersions(w http.ResponseWriter, r *http.Request) {
