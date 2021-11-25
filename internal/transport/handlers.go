@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -65,11 +66,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 func (h Handler) info(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	err := h.versionsService.Health(ctx)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	handleError(w, 500, "Health", err)
 
 	type healthResponse struct {
 		Status string `json:"status"`
@@ -116,9 +113,8 @@ func (h Handler) getVersionByID(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusNotFound, "not found")
 
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
 		}
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	respondWithJSON(w, 200, resp)
@@ -163,6 +159,14 @@ func (h Handler) deleteVersionByID(w http.ResponseWriter, req *http.Request) {
 }
 
 //-------------------------------
+func handleError(w http.ResponseWriter, code int, msg string, err error) {
+	if err != nil {
+		log.Println(fmt.Sprintf("%s: %+v", msg, err))
+		w.WriteHeader(code)
+		return
+	}
+}
+
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	log.Println(message)
 	respondWithJSON(w, code, map[string]string{"error": message})
