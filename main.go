@@ -1,13 +1,20 @@
 package main
 
 import (
-	"log"
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/config"
-	"github.com/skandyla/deploy-versions/internal"
+
+	"github.com/skandyla/deploy-versions/internal/repository"
+	"github.com/skandyla/deploy-versions/internal/service"
+	"github.com/skandyla/deploy-versions/internal/transport"
+	"github.com/skandyla/deploy-versions/pkg/db"
 )
 
 func main() {
@@ -16,37 +23,82 @@ func main() {
 		log.Fatal(err)
 	}
 
-	storage, err := internal.NewVersionStorage(config)
+	initLogger(config.LogLevel, config.JsonLogOutput)
+
+	dbc, err := db.NewConnection(config.PostgresDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		if err := dbc.Close(); err != nil {
+			log.Printf("error closing database: %v", err)
+		}
+		log.Println("clossing database connection")
+	}()
 
-	h := internal.NewVersionHandler(*storage)
+	versionsRepository := repository.NewVersionRepository(dbc)
+	versionsService := service.NewVersions(versionsRepository)
+	handler := transport.NewHandler(versionsService)
 
-	r := chi.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Logger)
+	server := http.Server{
+		Addr:           config.ListenAddress,
+		Handler:        handler.InitRouter(),
+		ReadTimeout:    config.ReadTimeout,
+		WriteTimeout:   config.WriteTimeout,
+		MaxHeaderBytes: 1 << 20,
+	}
 
-	r.Route("/info", func(r chi.Router) {
-		r.Get("/", h.Info)
-	})
+	// Make a channel to listen for errors coming from the listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	serverErrors := make(chan error, 1)
+	go func() {
+		log.Printf("server started, listening on %s", server.Addr)
+		serverErrors <- server.ListenAndServe()
+	}()
 
-	r.Route("/versions", func(r chi.Router) {
-		r.Get("/", h.GetAllVersions)
-	})
+	//------------------------------
+	// Blocking main and waiting for shutdown of the daemon.
 
-	r.Route("/version", func(r chi.Router) {
-		//r.Get("/", h.GetVersion)
-		r.Post("/", h.PostVersion)
-		r.Route("/{buildID}", func(r chi.Router) {
-			r.Get("/", h.GetVersionByID)
-			r.Put("/", h.PutVersionByID) //update entity
-			r.Delete("/", h.DeleteVersionByID)
-		})
-	})
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	err = http.ListenAndServe(":8080", r)
-	if err != nil {
-		log.Fatal(err)
+	// Waiting for an osSignal or a non-HTTP related server error.
+	select {
+	case err := <-serverErrors:
+		log.Printf("server error: %v", err)
+		return
+
+	case sig := <-quit:
+		log.Info("shutdown started, signal: ", sig)
+		//log.WithFields(log.Fields{"shutdown_status": "started"}).Info(sig)
+		defer log.Info("shutdown complete, signal: ", sig)
+
+		// Give outstanding requests a deadline for completion.
+		ctx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+
+		// Asking listener to shutdown and shed load.
+		if err := server.Shutdown(ctx); err != nil {
+			server.Close()
+			log.Printf("could not stop server gracefully: %v", err)
+			return
+		}
+	}
+}
+
+//------------------------------
+func initLogger(logLevel string, json bool) {
+	if json {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+	log.SetOutput(os.Stderr)
+
+	switch strings.ToLower(logLevel) {
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	default:
+		log.SetLevel(log.DebugLevel)
 	}
 }

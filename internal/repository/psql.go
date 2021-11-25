@@ -1,16 +1,16 @@
-package internal
+package repository
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/skandyla/deploy-versions/config"
 	"github.com/skandyla/deploy-versions/models"
 )
 
-type VersionStorage struct {
+type VersionRepository struct {
 	db *sqlx.DB
 }
 
@@ -22,41 +22,47 @@ var (
                     	LIMIT $1`
 )
 
-func NewVersionStorage(cfg *config.Config) (*VersionStorage, error) {
-	connection, err := sqlx.Connect("postgres", cfg.PostgresDSN)
-	if err != nil {
-		return nil, fmt.Errorf("connection is not initialized %w", err)
-	}
-
-	return &VersionStorage{
-		db: connection,
-	}, nil
+func NewVersionRepository(db *sqlx.DB) *VersionRepository {
+	return &VersionRepository{db: db}
 }
 
 // Health checks availability of storage
-func (s *VersionStorage) Health() error {
+func (s *VersionRepository) Health(ctx context.Context) error {
 	return s.db.Ping()
 }
 
 // GetAll return all entities
-func (s *VersionStorage) GetAllVersions() (m []models.VersionDBModel, err error) {
+func (s *VersionRepository) GetAll(ctx context.Context) (m []models.VersionResponse, err error) {
 	limit := 10 //TBD - set as variable
-	err = s.db.Select(&m, getAllQuery, limit)
+	dbModels := []models.VersionDBModel{}
+	err = s.db.Select(&dbModels, getAllQuery, limit)
 	if err != nil {
-		return nil, fmt.Errorf("VersionsStorage.GetAllVersions: cannot select row : %s ", err)
+		return nil, fmt.Errorf("VersionsRepository.GetAll: cannot select row : %s ", err)
 	}
+
+	for _, v := range dbModels {
+		m = append(m, versionResponseFromDBModel(v))
+	}
+
 	return m, nil
 }
 
 // GetVersion
-func (s *VersionStorage) GetVersionByID(id int) (m models.VersionDBModel, err error) {
+func (s *VersionRepository) GetByID(ctx context.Context, id int) (m models.VersionDBModel, err error) {
 	err = s.db.QueryRow("select * from versions where build_id = $1", id).
 		Scan(&m.Project, &m.Env, &m.Region, &m.Service, &m.GitBranch, &m.GitCommitHash, &m.BuildID, &m.UserName, &m.CreatedAt)
 	return m, err
 }
 
+func (s *VersionRepository) Delete(ctx context.Context, id int) error {
+	//TBD delete
+	log.Println("Deleting ID:", id)
+	return nil
+}
+
 // PostVersion - create new entity
-func (s *VersionStorage) PostVersion(m models.VersionDBModel) error {
+func (s *VersionRepository) Create(ctx context.Context, version models.CreateVersionRequest) error {
+	m := versionDBModelFromCreateRequest(version)
 	//tx, err := s.db.Begin()
 	//if err != nil {
 	//	return fmt.Errorf("PostVersion: %w", err)

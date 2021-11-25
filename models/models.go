@@ -2,6 +2,7 @@ package models
 
 import "time"
 
+// db model can be different from Object model
 type VersionDBModel struct {
 	Project       string    `db:"project"`
 	Env           string    `db:"env"`
