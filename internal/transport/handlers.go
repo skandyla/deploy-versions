@@ -1,100 +1,42 @@
 package transport
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator"
 	"github.com/skandyla/deploy-versions/models"
 )
-
-type Versions interface {
-	Create(ctx context.Context, version models.CreateVersionRequest) error
-	GetByID(ctx context.Context, id int) (models.VersionDBModel, error)
-	GetAll(ctx context.Context) ([]models.VersionResponse, error)
-	Delete(ctx context.Context, id int) error
-	Health(ctx context.Context) error
-	//Update(ctx context.Context, id int64, req models.UpdateVersionRequest) error
-}
-
-type Handler struct {
-	versionsService Versions
-}
-
-func NewHandler(versions Versions) *Handler {
-	return &Handler{
-		versionsService: versions,
-	}
-}
-
-func (h *Handler) InitRouter() *chi.Mux {
-	r := chi.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(loggingMiddleware) //test our own middleware implementation
-
-	r.Route("/info", func(r chi.Router) {
-		r.Get("/", h.info)
-	})
-
-	r.Route("/versions", func(r chi.Router) {
-		r.Use(middleware.Logger)
-		r.Get("/", h.getAllVersions)
-	})
-
-	r.Route("/version", func(r chi.Router) {
-		r.Post("/", h.createVersion)
-		r.Route("/{buildID}", func(r chi.Router) {
-			r.Get("/", h.getVersionByID)
-			r.Put("/", h.updateVersionByID) //update entity
-			r.Delete("/", h.deleteVersionByID)
-		})
-	})
-
-	return r
-}
 
 //-------------------------------
 //endpoints
 func (h Handler) info(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	err := h.versionsService.Health(ctx)
-	handleError(w, 500, "Health", err)
-
-	type healthResponse struct {
-		Status string `json:"status"`
-	}
-	resp := &healthResponse{
-		Status: "ok",
-	}
-	err = json.NewEncoder(w).Encode(&resp)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "Health", err)
 		return
 	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h Handler) getAllVersions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	versions, err := h.versionsService.GetAll(ctx)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "getAllVersions", err)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(versions)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "getAllVersions", err)
 		return
 	}
 }
@@ -103,18 +45,16 @@ func (h Handler) getVersionByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	buildID, err := strconv.Atoi(chi.URLParam(r, "buildID"))
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
+		handleError400(w, "getVersionByID", "can't parse buildID", err)
 		return
 	}
 	resp, err := h.versionsService.GetByID(ctx, buildID)
 	if err != nil {
-		log.Println(err)
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, "not found")
-
+			handleError400(w, "getVersionByID", "buildID not found", err)
+			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "getVersionByID", err)
 		return
 	}
 	respondWithJSON(w, 200, resp)
@@ -127,28 +67,30 @@ func (h Handler) createVersion(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&createVersionRequest)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError400(w, "createVersion", "Json decoding failed", err)
 		return
 	}
 
 	validate := validator.New()
 	err = validate.Struct(createVersionRequest)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
+		handleError400(w, "createVersion", "Json validation failed", err)
 		return
 	}
 
 	//in current behaviour entities not required to be unique
 	err = h.versionsService.Create(ctx, createVersionRequest)
 	if err != nil {
-		log.Println("createVersion() error:", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "createVersion", err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	//w.WriteHeader(http.StatusCreated)
+	resp := map[string]interface{}{
+		"code":      200,
+		"createdId": createVersionRequest.BuildID,
+	}
+	respondWithJSON(w, http.StatusOK, resp)
 }
 
 //TBD
@@ -159,17 +101,14 @@ func (h Handler) deleteVersionByID(w http.ResponseWriter, req *http.Request) {
 }
 
 //-------------------------------
-func handleError(w http.ResponseWriter, code int, msg string, err error) {
-	if err != nil {
-		log.Println(fmt.Sprintf("%s: %+v", msg, err))
-		w.WriteHeader(code)
-		return
-	}
+func handleError500(w http.ResponseWriter, logMarker string, err error) {
+	log.Printf("%s: %+v\n", logMarker, err)
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	log.Println(message)
-	respondWithJSON(w, code, map[string]string{"error": message})
+func handleError400(w http.ResponseWriter, logMarker string, respMsg string, err error) {
+	log.Printf("%s: %+v\n", logMarker, err)
+	respondWithJSON(w, http.StatusBadRequest, map[string]string{"error": respMsg})
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
