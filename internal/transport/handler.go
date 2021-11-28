@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/skandyla/deploy-versions/internal/domain"
 	"github.com/skandyla/deploy-versions/models"
 )
 
@@ -17,13 +18,21 @@ type Versions interface {
 	//Update(ctx context.Context, id int64, req models.UpdateVersionRequest) error
 }
 
-type Handler struct {
-	versionsService Versions
+type User interface {
+	SignUp(ctx context.Context, inp domain.SignUpInput) error
+	SignIn(ctx context.Context, inp domain.SignInInput) (string, error)
+	ParseToken(ctx context.Context, token string) (int64, error)
 }
 
-func NewHandler(versions Versions) *Handler {
+type Handler struct {
+	versionsService Versions
+	usersService    User
+}
+
+func NewHandler(versions Versions, users User) *Handler {
 	return &Handler{
 		versionsService: versions,
+		usersService:    users,
 	}
 }
 
@@ -36,11 +45,17 @@ func (h *Handler) InitRouter() *chi.Mux {
 		r.Get("/", h.info)
 	})
 
+	// Users
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/sign-up", h.signUp)
+		r.Get("/sign-in", h.signIn)
+	})
+
+	// Versions
 	r.Route("/versions", func(r chi.Router) {
 		r.Use(middleware.Logger)
 		r.Get("/", h.getAllVersions)
 	})
-
 	r.Route("/version", func(r chi.Router) {
 		r.Post("/", h.createVersion)
 		r.Route("/{buildID}", func(r chi.Router) {

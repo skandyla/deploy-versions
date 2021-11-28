@@ -1,9 +1,11 @@
 package transport
 
 import (
-	"log"
+	//"log"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {

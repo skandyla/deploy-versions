@@ -13,6 +13,14 @@ CREATE TABLE IF NOT EXISTS versions (
   created_at timestamp NOT NULL DEFAULT now() -- Time of deploy
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL NOT NULL unique,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    registered_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- create record
 INSERT INTO versions(project, env, region, service, git_branch, git_commit_hash, build_id, user_name, created_at) 
     VALUES('MyUnicorn1', 'stg', 'eu-central-1', 'api-gateway', 'v0.1.1', '7d0eb417009f5794a09330f0aad3934bea476a53', 129, 'jsmith' ,'2021-11-08 17:05:23.048055');
