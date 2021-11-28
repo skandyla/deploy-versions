@@ -84,8 +84,6 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh-token")
 	if err != nil {
-		//logError("refresh", err)
-		//w.WriteHeader(http.StatusBadRequest)
 		handleError400(w, "refresh", "error get cookkie", err)
 		return
 	}
@@ -94,8 +92,6 @@ func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, refreshToken, err := h.usersService.RefreshTokens(r.Context(), cookie.Value)
 	if err != nil {
-		//logError("signIn", err)
-		//w.WriteHeader(http.StatusInternalServerError)
 		handleError500(w, "signIn:RefreshTokens", err)
 		return
 	}
@@ -104,8 +100,6 @@ func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 		"token": accessToken,
 	})
 	if err != nil {
-		//logError("signIn", err)
-		//w.WriteHeader(http.StatusInternalServerError)
 		handleError500(w, "signIn:Marshal:response", err)
 		return
 	}

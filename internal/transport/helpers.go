@@ -2,10 +2,7 @@ package transport
 
 import (
 	"encoding/json"
-	//"log"
 	"net/http"
-
-	//"github.com/sirupsen/logrus"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -34,15 +31,4 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	if err != nil {
 		log.Println(err)
 	}
-}
-
-//----- TBD: refactor to my helpers
-func logFields(handler string) log.Fields {
-	return log.Fields{
-		"handler": handler,
-	}
-}
-
-func logError(handler string, err error) {
-	log.WithFields(logFields(handler)).Error(err)
 }
