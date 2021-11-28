@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator"
+	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/models"
 )
 
@@ -56,6 +57,10 @@ func (h Handler) getVersionByID(w http.ResponseWriter, r *http.Request) {
 		handleError500(w, "getVersionByID", err)
 		return
 	}
+
+	//for test
+	log.Debugf("ctxUserID:%+v", ctx.Value(ctxUserID))
+
 	respondWithJSON(w, 200, resp)
 }
 

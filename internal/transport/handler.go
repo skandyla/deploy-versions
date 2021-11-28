@@ -41,6 +41,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(loggingMiddleware) //test our own middleware implementation
 
+	// health
 	r.Route("/info", func(r chi.Router) {
 		r.Get("/", h.info)
 	})
@@ -57,6 +58,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 		r.Get("/", h.getAllVersions)
 	})
 	r.Route("/version", func(r chi.Router) {
+		r.Use(h.authMiddleware)
 		r.Post("/", h.createVersion)
 		r.Route("/{buildID}", func(r chi.Router) {
 			r.Get("/", h.getVersionByID)
