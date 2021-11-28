@@ -47,8 +47,10 @@ func main() {
 	versionsRepository := repository.NewVersionRepository(dbc)
 	versionsService := service.NewVersions(versionsRepository)
 
+	tokensRepo := repository.NewTokens(dbc)
 	usersRepo := repository.NewUsers(dbc)
-	usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
+	//usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
+	usersService := service.NewUsers(usersRepo, tokensRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
 
 	handler := transport.NewHandler(versionsService, usersService)
 

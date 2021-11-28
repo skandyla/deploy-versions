@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS users (
     registered_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id SERIAL NOT NULL unique,
+    user_id INT REFERENCES users (id) ON DELETE CASCADE NOT NULL,
+    token VARCHAR(255) NOT NULL unique, 
+    expires_at TIMESTAMP NOT NULL
+);
+
+
 -- create record
 INSERT INTO versions(project, env, region, service, git_branch, git_commit_hash, build_id, user_name, created_at) 
     VALUES('MyUnicorn1', 'stg', 'eu-central-1', 'api-gateway', 'v0.1.1', '7d0eb417009f5794a09330f0aad3934bea476a53', 129, 'jsmith' ,'2021-11-08 17:05:23.048055');

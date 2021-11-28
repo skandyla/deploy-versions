@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/internal/domain"
 )
 
@@ -56,7 +57,7 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.usersService.SignIn(r.Context(), inp)
+	accessToken, refreshToken, err := h.usersService.SignIn(r.Context(), inp)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			handleError400(w, "signIn:Service", fmt.Sprintf("%+v", err), err)
@@ -68,13 +69,48 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := json.Marshal(map[string]string{
-		"token": token,
+		"token": accessToken,
 	})
 	if err != nil {
 		handleError500(w, "signIn:response:Marshal", err)
 		return
 	}
 
+	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(response)
+}
+
+func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("refresh-token")
+	if err != nil {
+		//logError("refresh", err)
+		//w.WriteHeader(http.StatusBadRequest)
+		handleError400(w, "refresh", "error get cookkie", err)
+		return
+	}
+
+	log.Infof("%s", cookie.Value)
+
+	accessToken, refreshToken, err := h.usersService.RefreshTokens(r.Context(), cookie.Value)
+	if err != nil {
+		//logError("signIn", err)
+		//w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "signIn:RefreshTokens", err)
+		return
+	}
+
+	response, err := json.Marshal(map[string]string{
+		"token": accessToken,
+	})
+	if err != nil {
+		//logError("signIn", err)
+		//w.WriteHeader(http.StatusInternalServerError)
+		handleError500(w, "signIn:Marshal:response", err)
+		return
+	}
+
+	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token='%s'; HttpOnly", refreshToken))
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(response)
 }
