@@ -7,7 +7,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      POSTGRES_DSN: "postgres://db_user:db_pass@db/deploy_versions?sslmode=disable"
+      APP_POSTGRES_DSN: "postgres://db_user:db_pass@db/deploy_versions?sslmode=disable"
+      APP_LOG_LEVEL: "debug"
+      APP_AUTH_TOKEN_TTL: "30s"
     depends_on:
       db:
         condition: service_healthy

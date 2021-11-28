@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator"
+	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/models"
 )
 
@@ -57,6 +57,10 @@ func (h Handler) getVersionByID(w http.ResponseWriter, r *http.Request) {
 		handleError500(w, "getVersionByID", err)
 		return
 	}
+
+	//for test
+	log.Debugf("ctxUserID:%+v", ctx.Value(ctxUserID))
+
 	respondWithJSON(w, 200, resp)
 }
 
@@ -98,25 +102,4 @@ func (h Handler) updateVersionByID(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h Handler) deleteVersionByID(w http.ResponseWriter, req *http.Request) {
-}
-
-//-------------------------------
-func handleError500(w http.ResponseWriter, logMarker string, err error) {
-	log.Printf("%s: %+v\n", logMarker, err)
-	w.WriteHeader(http.StatusInternalServerError)
-}
-
-func handleError400(w http.ResponseWriter, logMarker string, respMsg string, err error) {
-	log.Printf("%s: %+v\n", logMarker, err)
-	respondWithJSON(w, http.StatusBadRequest, map[string]string{"error": respMsg})
-}
-
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response, _ := json.Marshal(payload)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_, err := w.Write(response)
-	if err != nil {
-		log.Println(err)
-	}
 }
