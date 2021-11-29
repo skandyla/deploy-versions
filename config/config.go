@@ -14,8 +14,12 @@ type Config struct {
 	ReadTimeout     time.Duration `default:"5s" split_words:"true"`
 	WriteTimeout    time.Duration `default:"500s" split_words:"true"`
 	ShutdownTimeout time.Duration `default:"5s" split_words:"true"`
-	LogLevel        string        `default:"info" split_wors:"true"`
+	LogLevel        string        `default:"info" split_words:"true"`
 	JsonLogOutput   bool          `required:"false" default:"true" split_words:"true"`
+
+	Auth struct {
+		TokenTTL time.Duration `default:"30m" split_words:"true"`
+	} `envconfig:"auth"`
 }
 
 func New() (*Config, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +16,7 @@ import (
 	"github.com/skandyla/deploy-versions/internal/service"
 	"github.com/skandyla/deploy-versions/internal/transport"
 	"github.com/skandyla/deploy-versions/pkg/db"
+	"github.com/skandyla/deploy-versions/pkg/hash"
 )
 
 func main() {
@@ -36,9 +38,21 @@ func main() {
 		log.Println("clossing database connection")
 	}()
 
+	// init deps
+	fmt.Println("tokenttl:", config.Auth.TokenTTL)
+	fmt.Println("logLevel:", config.LogLevel)
+
+	hasher := hash.NewSHA1Hasher("salt")
+
 	versionsRepository := repository.NewVersionRepository(dbc)
 	versionsService := service.NewVersions(versionsRepository)
-	handler := transport.NewHandler(versionsService)
+
+	tokensRepo := repository.NewTokens(dbc)
+	usersRepo := repository.NewUsers(dbc)
+	//usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
+	usersService := service.NewUsers(usersRepo, tokensRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
+
+	handler := transport.NewHandler(versionsService, usersService)
 
 	server := http.Server{
 		Addr:           config.ListenAddress,
