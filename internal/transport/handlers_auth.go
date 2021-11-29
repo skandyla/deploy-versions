@@ -78,13 +78,16 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh-token")
 	if err != nil {
-		handleError400(w, "refresh", "error get cookkie", err)
+		handleError400(w, "refresh", "error get cookie", err)
 		return
 	}
 
@@ -104,7 +107,10 @@ func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token='%s'; HttpOnly", refreshToken))
+	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		log.Println(err)
+	}
 }

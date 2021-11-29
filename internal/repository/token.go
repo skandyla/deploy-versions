@@ -22,9 +22,9 @@ func (r *Tokens) Create(ctx context.Context, token domain.RefreshSession) error 
 	return err
 }
 
-func (r *Tokens) Get(ctx context.Context, token string) (domain.RefreshSession, error) {
+func (r *Tokens) Get(ctx context.Context, refreshToken string) (domain.RefreshSession, error) {
 	var t domain.RefreshSession
-	err := r.db.QueryRow("SELECT id, user_id, token, expires_at FROM refresh_tokens WHERE token=$1", token).
+	err := r.db.QueryRow("SELECT id, user_id, token, expires_at FROM refresh_tokens WHERE token=$1", refreshToken).
 		Scan(&t.ID, &t.UserID, &t.Token, &t.ExpiresAt)
 	if err != nil {
 		return t, err
