@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/antonlindstrom/pgstore"
 	log "github.com/sirupsen/logrus"
 	"github.com/skandyla/deploy-versions/config"
 
@@ -39,20 +40,27 @@ func main() {
 	}()
 
 	// init deps
-	fmt.Println("tokenttl:", config.Auth.TokenTTL)
-	fmt.Println("logLevel:", config.LogLevel)
-
+	//fmt.Println("tokenttl:", config.Auth.TokenTTL)
+	//fmt.Println("logLevel:", config.LogLevel)
 	hasher := hash.NewSHA1Hasher("salt")
+
+	// sessions
+	sessionsStore, err := pgstore.NewPGStore(config.PostgresDSN, []byte("secret-key"))
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	defer sessionsStore.Close()
+	// Run a background goroutine to clean up expired sessions from the database.
+	defer sessionsStore.StopCleanup(sessionsStore.Cleanup(time.Minute * 5))
 
 	versionsRepository := repository.NewVersionRepository(dbc)
 	versionsService := service.NewVersions(versionsRepository)
 
-	tokensRepo := repository.NewTokens(dbc)
+	//tokensRepo := repository.NewTokens(dbc)
 	usersRepo := repository.NewUsers(dbc)
-	//usersService := service.NewUsers(usersRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
-	usersService := service.NewUsers(usersRepo, tokensRepo, hasher, []byte("sample secret"), config.Auth.TokenTTL)
+	usersService := service.NewUsers(usersRepo, hasher)
 
-	handler := transport.NewHandler(versionsService, usersService)
+	handler := transport.NewHandler(versionsService, usersService, sessionsStore)
 
 	server := http.Server{
 		Addr:           config.ListenAddress,

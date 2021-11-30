@@ -1,12 +1,8 @@
 package transport
 
 import (
-	//"log"
-	"context"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -30,39 +26,19 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 func (h *Handler) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, err := getTokenFromRequest(r)
-		if err != nil {
-			handleError401(w, "authMiddleware", fmt.Sprintf("%+v", err), err)
+		session, _ := h.sessionsStore.Get(r, "cookie-name")
+
+		// Check if user is authenticated
+		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+			//resp := map[string]interface{}{
+			//	"code":  403,
+			//	"error": "access denied",
+			//}
+			//respondWithJSON(w, http.StatusForbidden, resp)
+			handleError401(w, "authMiddleware", "access denied", errors.New("cookie is not set"))
+
 			return
 		}
-
-		userId, err := h.usersService.ParseToken(r.Context(), token)
-		if err != nil {
-			handleError401(w, "authMiddleware", fmt.Sprintf("%+v", err), err)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), ctxUserID, userId)
-		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
-}
-
-func getTokenFromRequest(r *http.Request) (string, error) {
-	header := r.Header.Get("Authorization")
-	if header == "" {
-		return "", errors.New("empty auth header")
-	}
-
-	headerParts := strings.Split(header, " ")
-	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-		return "", errors.New("invalid auth header")
-	}
-
-	if len(headerParts[1]) == 0 {
-		return "", errors.New("token is empty")
-	}
-
-	return headerParts[1], nil
 }

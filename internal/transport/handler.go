@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 
+	"github.com/antonlindstrom/pgstore"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/skandyla/deploy-versions/internal/domain"
@@ -20,20 +21,20 @@ type Versions interface {
 
 type User interface {
 	SignUp(ctx context.Context, inp domain.SignUpInput) error
-	SignIn(ctx context.Context, inp domain.SignInInput) (string, string, error)
-	ParseToken(ctx context.Context, accessToken string) (int64, error)
-	RefreshTokens(ctx context.Context, refreshToken string) (string, string, error)
+	SignIn(ctx context.Context, inp domain.SignInInput) error
 }
 
 type Handler struct {
 	versionsService Versions
 	usersService    User
+	sessionsStore   *pgstore.PGStore
 }
 
-func NewHandler(versions Versions, users User) *Handler {
+func NewHandler(versions Versions, users User, sessionsStore *pgstore.PGStore) *Handler {
 	return &Handler{
 		versionsService: versions,
 		usersService:    users,
+		sessionsStore:   sessionsStore,
 	}
 }
 
@@ -51,7 +52,7 @@ func (h *Handler) InitRouter() *chi.Mux {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/sign-up", h.signUp)
 		r.Get("/sign-in", h.signIn)
-		r.Get("/refresh", h.refresh)
+		r.Get("/logout", h.logOut)
 	})
 
 	// Versions
