@@ -57,7 +57,10 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, refreshToken, err := h.usersService.SignIn(r.Context(), inp)
+	session, _ := h.sessionsStore.Get(r, "cookie-name")
+
+	//authentication
+	err = h.usersService.SignIn(r.Context(), inp)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			handleError400(w, "signIn:Service", fmt.Sprintf("%+v", err), err)
@@ -68,49 +71,44 @@ func (h *Handler) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := json.Marshal(map[string]string{
-		"token": accessToken,
-	})
-	if err != nil {
-		handleError500(w, "signIn:response:Marshal", err)
-		return
-	}
-
-	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
-	w.Header().Add("Content-Type", "application/json")
-	_, err = w.Write(response)
+	//set user as authenticated
+	session.Values["authenticated"] = true
+	err = session.Save(r, w)
 	if err != nil {
 		log.Println(err)
 	}
+
+	resp := map[string]interface{}{
+		"code":          200,
+		"authenticated": "true",
+	}
+	respondWithJSON(w, 200, resp)
 }
 
-func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("refresh-token")
-	if err != nil {
-		handleError400(w, "refresh", "error get cookie", err)
+func (h *Handler) logOut(w http.ResponseWriter, r *http.Request) {
+
+	session, _ := h.sessionsStore.Get(r, "cookie-name")
+
+	// Check if user is authenticated
+	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+		resp := map[string]interface{}{
+			"code": 200,
+			"msg":  "user is not signed-in",
+		}
+		respondWithJSON(w, http.StatusOK, resp)
 		return
 	}
 
-	log.Infof("%s", cookie.Value)
-
-	accessToken, refreshToken, err := h.usersService.RefreshTokens(r.Context(), cookie.Value)
-	if err != nil {
-		handleError500(w, "signIn:RefreshTokens", err)
-		return
-	}
-
-	response, err := json.Marshal(map[string]string{
-		"token": accessToken,
-	})
-	if err != nil {
-		handleError500(w, "signIn:Marshal:response", err)
-		return
-	}
-
-	w.Header().Add("Set-Cookie", fmt.Sprintf("refresh-token=%s; HttpOnly", refreshToken))
-	w.Header().Add("Content-Type", "application/json")
-	_, err = w.Write(response)
+	// Revoke users authentication
+	session.Values["authenticated"] = false
+	err := session.Save(r, w)
 	if err != nil {
 		log.Println(err)
 	}
+
+	resp := map[string]interface{}{
+		"code": 200,
+		"msg":  "logged out",
+	}
+	respondWithJSON(w, http.StatusOK, resp)
 }
